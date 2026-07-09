@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Inventory System v2.20</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto+Mono&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* --- TEMA OSCURO (POR DEFECTO) --- */
+            --bg-color: #0d1117;
+            --surface-color: rgba(22, 27, 34, 0.7);
+            --text-primary: #e6edf3;
+            --text-secondary: #7d8590;
+            --border-color: rgba(60, 68, 79, 0.5);
+            --glow-color: #00aeff;
+            --glow-shadow: rgba(0, 174, 255, 0.3);
+            --success-color: #23ba52;
+            --error-color: #f85149;
+            --main-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        body[data-theme="light"] {
+            /* --- TEMA CLARO (PROFESIONAL) --- */
+            --bg-color: #f7f9fc;
+            --surface-color: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --glow-color: #0d6efd;
+            --glow-shadow: rgba(13, 110, 253, 0.25);
+            --success-color: #198754;
+            --error-color: #dc3545;
+            --main-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-color);
+            color: var(--text-primary);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; padding: 2rem; overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body[data-theme="dark"] {
+            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #0d1117);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; }
+        }
+
+        .icon { width: 1em; height: 1em; vertical-align: middle; fill: currentColor; }
+
+        #upload-screen, #main-app {
+            transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        }
+
+        #drop-zone {
+            width: 100%; padding: 60px 30px; border: 2px dashed var(--border-color);
+            border-radius: 15px; background: var(--surface-color);
+            cursor: pointer; transition: all 0.3s ease; text-align: center;
+        }
+        body[data-theme="dark"] #drop-zone { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        #drop-zone.dragover { border-color: var(--glow-color); box-shadow: 0 0 20px var(--glow-shadow); }
+        #drop-zone .upload-icon { font-size: 4rem; color: var(--glow-color); margin-bottom: 1rem; animation: pulseIcon 1.6s ease-in-out infinite; }
+        @keyframes pulseIcon { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        #drop-zone p { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
+        #drop-zone span { font-size: 0.9rem; color: var(--text-secondary); }
+        #file-info { margin-top: 1.5rem; font-size: 1rem; height: 24px; text-align: center; }
+        #loader { display: none; margin: 1rem auto 0; border: 4px solid var(--border-color); border-top: 4px solid var(--glow-color);
+            border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #main-app {
+            position: relative;
+            display: none; width: 100%; max-width: 1400px;
+            background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 15px; padding: 2rem;
+            box-shadow: var(--main-shadow);
+            opacity: 0; transform: scale(0.95); transition: opacity 0.5s ease-in, transform 0.5s ease-in, background-color 0.3s ease, border-color 0.3s ease;
+        }
+        body[data-theme="dark"] #main-app { backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
+
+        h1 { color: var(--glow-color); text-align: center; letter-spacing: 1px; text-shadow: 0 0 8px var(--glow-shadow); margin-bottom: 1rem; transition: color 0.3s ease; }
+        h2 { color: var(--glow-color); letter-spacing: 1px; text-shadow: 0 0 8px var(--glow-shadow); margin: 0; transition: color 0.3s ease; }
+
+        .step-section { border-bottom: 1px solid var(--border-color); padding-bottom: 2rem; margin-bottom: 2rem; }
+
+        .input-wrapper { position: relative; }
+        #search-input-wrapper { margin-bottom: 0; width: 40%; max-width: 400px; }
+        .step-section .input-wrapper { margin-bottom: 1rem; }
+
+        /* --- AJUSTES DE ICONOS --- */
+        .input-wrapper .icon {
+            position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+            color: var(--text-secondary); font-size: 1.3rem; pointer-events: none;
+        }
+
+        .camera-btn {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 5;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0;
+            font-size: 3rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 45px;
+            height: 45px;
+            transition: color 0.3s, opacity 0.3s;
+        }
+        .camera-btn:hover:not(:disabled) { color: var(--glow-color); }
+        .camera-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Mueve el icono decorativo si está precedido por un botón de cámara */
+        .camera-btn + .icon {
+            left: 65px;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%; background-color: var(--bg-color); border: 1px solid var(--border-color);
+            color: var(--text-primary); padding: 12px 15px;
+            border-radius: 8px; font-family: 'Poppins', sans-serif; transition: all 0.3s ease;
+            font-size: 1rem;
+            min-height: 50px;
+        }
+
+        /* Padding para inputs con 1 icono */
+        .input-wrapper .icon + input { padding-left: 50px; }
+
+        /* Padding para inputs con 2 iconos (cámara + decorativo) */
+        #location-input, #product-code-input {
+            padding-left: 120px;
+        }
+
+        body[data-theme="dark"] input, body[data-theme="dark"] select { background-color: rgba(13, 17, 23, 0.5); }
+        input:focus, select:focus { outline: none; border-color: var(--glow-color); box-shadow: 0 0 0 3px var(--glow-shadow); }
+        input:disabled, select:disabled { opacity: 0.6; background-color: rgba(125, 125, 125, 0.2); }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary); }
+
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+
+        .table-container { max-height: 450px; overflow: auto; border: 1px solid var(--border-color); border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-family: 'Roboto Mono', monospace; font-size: 0.85em; }
+        th, td { padding: 10px 12px; text-align: left; white-space: nowrap; }
+        td.td-description { max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        thead { position: sticky; top: 0; z-index: 10; }
+        body[data-theme="dark"] thead { background-color: #161b22; }
+        body[data-theme="light"] thead { background-color: #f8f9fa; border-bottom: 2px solid var(--border-color); }
+        tbody tr { border-bottom: 1px solid var(--border-color); transition: background-color 0.2s ease; }
+        tbody tr:last-child { border-bottom: none; }
+        body[data-theme="dark"] tbody tr:hover { background-color: rgba(0, 174, 255, 0.1); }
+        body[data-theme="light"] tbody tr:hover { background-color: rgba(13, 110, 253, 0.08); }
+
+        td.editable { cursor: pointer; }
+        .diff-shortage { color: var(--error-color); font-weight: bold; }
+        .diff-overstock { color: var(--success-color); font-weight: bold; }
+
+        .action-buttons { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+        button { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--glow-color); color: #fff; border: none; padding: 10px 20px; font-family: 'Poppins', sans-serif; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px var(--glow-shadow); }
+        button:hover { box-shadow: 0 6px 20px var(--glow-shadow); transform: translateY(-2px); }
+        button.secondary { background: transparent; color: var(--glow-color); border: 1px solid var(--glow-color); box-shadow: none; }
+        .delete-btn { background: transparent; color: var(--error-color); border: 1px solid var(--error-color); padding: 5px; border-radius: 5px; line-height: 1; box-shadow: none; }
+        .delete-btn:hover { background: var(--error-color); color: #fff; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+        .modal-content { background: var(--surface-color); border: 1px solid var(--border-color); padding: 30px; width: 90%; max-width: 500px; border-radius: 15px; box-shadow: 0 0 25px rgba(0, 0, 0, 0.5); animation: fadeIn 0.5s; position: relative; }
+        @keyframes fadeIn { from {opacity: 0; transform: scale(0.9);} to {opacity: 1; transform: scale(1);} }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; }
+
+        .suggestions-container { display: none; position: absolute; background-color: var(--surface-color); border: 1px solid var(--glow-color); border-radius: 8px; max-height: 200px; overflow-y: auto; z-index: 100; width: 100%; }
+        body[data-theme="dark"] .suggestions-container { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .suggestion-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .suggestion-item:last-child { border-bottom: none; }
+        body[data-theme="dark"] .suggestion-item:hover { background-color: rgba(0, 195, 255, 0.1); }
+        body[data-theme="light"] .suggestion-item:hover { background-color: rgba(13, 110, 253, 0.1); }
+        .suggestion-item strong { color: var(--glow-color); } .suggestion-active { background-color: var(--glow-color); color: #fff; }
+        .suggestion-active strong { color: #fff; }
+
+        #theme-toggle {
+            position: fixed; top: 1.5rem; right: 1.5rem; z-index: 1001;
+            background: var(--surface-color); border: 1px solid var(--border-color);
+            color: var(--text-secondary); width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: none; padding: 0;
+        }
+        #theme-toggle:hover { color: var(--glow-color); border-color: var(--glow-color); }
+        #theme-toggle svg { width: 20px; height: 20px; }
+        body[data-theme="dark"] .sun-icon { display: block; } body[data-theme="dark"] .moon-icon { display: none; }
+        body[data-theme="light"] .sun-icon { display: none; } body[data-theme="light"] .moon-icon { display: block; }
+
+        #camera-modal-content { padding: 1rem; }
+        #camera-feed { width: 100%; max-width: 100%; border-radius: 8px; background: #333;}
+        #camera-modal-content p { text-align: center; margin-top: 1rem; color: var(--text-secondary); }
+        #camera-modal-close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; color: var(--text-primary); cursor: pointer; padding: 0.5rem; line-height: 1;}
+
+        /* --- ESTILOS DE IMPRESIÓN MEJORADOS --- */
+        @page {
+            margin: 0.75in;
+        }
+
+        @media print {
+            html, body {
+                background: #fff !important; color: #000 !important;
+                font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact;
+                display: block !important; padding: 0 !important; margin: 0 !important;
+            }
+            #main-app, #upload-screen, #theme-toggle, .action-buttons, .modal { display: none !important; }
+            .print-header, #print-container { display: block !important; width: 100%; }
+            .print-header { text-align: center; margin-bottom: 1.5rem; border-bottom: 2px solid #000; padding-bottom: 1rem; }
+            .print-header h1, .print-header h2 { color: #000; text-shadow: none; }
+            #print-container table { width: 100%; border-collapse: collapse; }
+            #print-container th, #print-container td { border: 1px solid #999; padding: 6px 8px; text-align: left; white-space: normal; word-wrap: break-word; }
+            #print-container thead { background-color: #e0e0e0 !important; font-weight: bold; }
+            #print-container td.td-description { max-width: 250px; }
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <svg width="0" height="0" style="position:absolute"><defs>
+        <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/></symbol>
+        <symbol id="icon-location" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></symbol>
+        <symbol id="icon-barcode" viewBox="0 0 24 24"><path d="M4 6h2v12H4zm3 0h1v12H7zm2 0h2v12H9zm3 0h1v12h-1zm2 0h3v12h-3zm-8 2h1v8H5zm5 0h1v8h-1zm4 0h1v8h-1z"/></symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></symbol>
+        <symbol id="icon-print" viewBox="0 0 24 24"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM16 19H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zM18 3H6v4h12V3z"/></symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24"><path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5s5-2.24 5-5s-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.64 5.64c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L5.64 2.81c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41L5.64 5.64zm12.72 12.72c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-1.41-1.41c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41zM2.81 18.36c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L2.81 15.54c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41zm12.72-12.72c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41l-1.41-1.41c-.39-.39-1.02-.39-1.41 0s-.39 1.02 0 1.41l1.41 1.41z"/></symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M9.37 5.51A7.35 7.35 0 0 0 9.1 7.5c0 4.08 3.32 7.4 7.4 7.4c.68 0 1.35-.09 1.99-.27A7.014 7.014 0 0 1 12 19c-3.86 0-7-3.14-7-7c0-2.93 1.81-5.45 4.37-6.49z"/></symbol>
+        <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M9.4 6.5h5.2L16 8h2.5c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5h-11C6.67 20 6 19.33 6 18.5v-9C6 8.67 6.67 8 7.5 8H10l1.4-1.5zM12 17c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/></symbol>
+    </defs></svg>
+
+    <button id="theme-toggle" title="Cambiar Tema">
+        <svg class="sun-icon"><use xlink:href="#icon-sun"></use></svg>
+        <svg class="moon-icon"><use xlink:href="#icon-moon"></use></svg>
+    </button>
+
+    <div id="upload-screen">
+        <h1>Quantum Inventory System</h1>
+        <div id="drop-zone">
+            <div class="upload-icon"><svg class="icon"><use xlink:href="#icon-upload"></use></svg></div>
+            <p>Conectando con Google Sheets</p><span>Leyendo MAESTRO e INVENTARIO...</span>
+        </div>
+        <div id="file-info"></div><div id="loader"></div>
+        <button id="retry-load-btn" class="secondary" style="display:none; margin: 1.5rem auto 0;">Reintentar Carga</button>
+    </div>
+
+    <div id="main-app">
+        <h1>Panel de Inventario</h1>
+        <div class="step-section">
+            <div class="input-wrapper">
+                <label for="location-input">1. Ubicación</label>
+                <button class="camera-btn" id="location-scan-btn" title="Escanear Ubicación"><svg class="icon"><use xlink:href="#icon-camera"></use></svg></button>
+                <svg class="icon"><use xlink:href="#icon-location"></use></svg>
+                <input type="text" id="location-input" placeholder="Escanear, pegar o escribir...">
+            </div>
+            <div class="input-wrapper">
+                <label for="product-code-input">2. Código de Producto</label>
+                <button class="camera-btn" id="product-scan-btn" title="Escanear Producto" disabled><svg class="icon"><use xlink:href="#icon-camera"></use></svg></button>
+                <svg class="icon"><use xlink:href="#icon-barcode"></use></svg>
+                <input type="text" id="product-code-input" placeholder="Esperando ubicación..." disabled autocomplete="off">
+                <div id="suggestions-box" class="suggestions-container"></div>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <div class="table-header">
+                <h2>Conteo Físico</h2>
+                <div class="input-wrapper" id="search-input-wrapper">
+                    <svg class="icon"><use xlink:href="#icon-search"></use></svg>
+                    <input type="text" id="search-input" placeholder="Buscar en la tabla...">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="inventory-results-table">
+                    <thead>
+                        <tr>
+                            <th>Subalmacén</th><th>Código</th><th>Descripción</th><th>Und/M</th>
+                            <th>Stock Sistema</th><th>Stock Físico</th><th>Diferencia</th>
+                            <th>Ubicación</th><th class="actions-col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button id="download-btn" class="secondary"><svg class="icon"><use xlink:href="#icon-download"></use></svg>Descargar Reporte</button>
+            <button id="print-btn"><svg class="icon"><use xlink:href="#icon-print"></use></svg>Imprimir</button>
+        </div>
+    </div>
+
+    <div id="quantity-modal" class="modal">
+        <div class="modal-content">
+            <h3>Registrar Producto</h3><p id="modal-product-description"></p>
+            <div class="input-group">
+                <label for="subalmacen-select">Subalmacén:</label><select id="subalmacen-select"></select><br>
+                <label for="quantity-input">Cantidad (Stock Físico):</label><input type="number" id="quantity-input" min="0" placeholder="Ingrese la cantidad...">
+            </div>
+            <div class="modal-buttons">
+                <button id="modal-cancel-btn" class="secondary">Cancelar</button><button id="modal-save-btn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="camera-modal" class="modal">
+        <div class="modal-content" id="camera-modal-content">
+             <button id="camera-modal-close-btn">&times;</button>
+             <h3>Escáner de Códigos</h3>
+             <video id="camera-feed" playsinline></video>
+             <p>Apunta la cámara al código de barras o QR</p>
+        </div>
+    </div>
+
+    <div class="print-header" style="display:none;">
+        <h1 id="print-title">INVENTARIO</h1>
+        <h2 id="print-date"></h2>
+    </div>
+    <div id="print-container" style="display:none;"></div>
+
+    <audio id="click-sound" src="https://cdn.freesound.org/previews/253/253887_3979848-lq.mp3" preload="auto"></audio>
+    <audio id="success-sound" src="https://cdn.freesound.org/previews/391/391539_5121236-lq.mp3" preload="auto"></audio>
+    <audio id="error-sound" src="https://cdn.freesound.org/previews/403/403006_5121236-lq.mp3" preload="auto"></audio>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- Lógica del Tema (sin cambios) ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+        function applyTheme(theme) { document.body.dataset.theme = theme; localStorage.setItem('inventoryTheme', theme); }
+        const savedTheme = localStorage.getItem('inventoryTheme');
+        if (savedTheme) { applyTheme(savedTheme); } else { applyTheme(prefersDarkScheme.matches ? 'dark' : 'light'); }
+        themeToggle.addEventListener('click', () => { const currentTheme = document.body.dataset.theme; applyTheme(currentTheme === 'light' ? 'dark' : 'light'); });
+
+        // --- Configuración de Google Sheets (Apps Script Web App) ---
+        const CONFIG = {
+            // ⚠️ REEMPLAZA esta URL por la de tu implementación de Apps Script (termina en /exec)
+            API_URL: 'hthttps://script.google.com/macros/s/AKfycbyEPOUMnbrFPuqYMsObxi4bv8chuiXDxa8-niFqwoPb3JOuzV__-YaYnJ5qIAVHUJBa/exec',
+            FUERA_DE_STOCK_LABEL: 'FUERA DE STOCK'
+        };
+
+        // --- Declaración de Variables ---
+        let database = [], inventoryData = [], currentLocation = '', currentScannedItem = null;
+        let activeSuggestionIndex = -1;
+        let scannerInterval = null, scannerTargetInput = null, videoStream = null;
+        let lastInputTime = Date.now(); // Para detectar escaneo/pegado rápido
+        const SCAN_THRESHOLD = 50; // milisegundos
+
+        const uploadScreen = document.getElementById('upload-screen'), mainApp = document.getElementById('main-app'),
+              dropZone = document.getElementById('drop-zone'), retryLoadBtn = document.getElementById('retry-load-btn'),
+              fileInfo = document.getElementById('file-info'), loader = document.getElementById('loader'),
+              locationInput = document.getElementById('location-input'), productCodeInput = document.getElementById('product-code-input'),
+              locationScanBtn = document.getElementById('location-scan-btn'), productScanBtn = document.getElementById('product-scan-btn'),
+              suggestionsBox = document.getElementById('suggestions-box'),
+              searchInput = document.getElementById('search-input'), resultsTbody = document.getElementById('results-tbody'),
+              downloadBtn = document.getElementById('download-btn'), printBtn = document.getElementById('print-btn'),
+              quantityModal = document.getElementById('quantity-modal'), modalDescription = document.getElementById('modal-product-description'),
+              subalmacenSelect = document.getElementById('subalmacen-select'), quantityInput = document.getElementById('quantity-input'),
+              modalSaveBtn = document.getElementById('modal-save-btn'), modalCancelBtn = document.getElementById('modal-cancel-btn'),
+              printDateEl = document.getElementById('print-date'), printContainer = document.getElementById('print-container'),
+              cameraModal = document.getElementById('camera-modal'), cameraFeed = document.getElementById('camera-feed'),
+              cameraModalCloseBtn = document.getElementById('camera-modal-close-btn'),
+              clickSound = document.getElementById('click-sound'), successSound = document.getElementById('success-sound'),
+              errorSound = document.getElementById('error-sound');
+
+        const barcodeDetectorSupported = 'BarcodeDetector' in window;
+        if (!barcodeDetectorSupported) {
+            console.warn("La API BarcodeDetector no es compatible. Los botones se desactivarán.");
+            [locationScanBtn, productScanBtn].forEach(btn => {
+                btn.disabled = true;
+                btn.title = 'Escáner no compatible con este navegador.';
+            });
+        }
+
+        function playSound(sound) { sound.currentTime = 0; sound.play().catch(e => console.error("Error al reproducir sonido:", e)); }
+
+        // Inicia la carga de datos automáticamente al abrir la app
+        loadFromSheets();
+
+        // --- Lógica de Carga desde Google Sheets (MAESTRO + INVENTARIO) ---
+        retryLoadBtn.addEventListener('click', loadFromSheets);
+
+        function loadFromSheets() {
+            retryLoadBtn.style.display = 'none';
+            loader.style.display = 'block';
+            fileInfo.textContent = 'Conectando con Google Sheets...';
+
+            fetch(CONFIG.API_URL)
+                .then(res => {
+                    if (!res.ok) throw new Error('Respuesta HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(json => {
+                    if (!json.ok) throw new Error(json.error || 'Error desconocido del servidor.');
+                    // json.data trae, por cada código: CODIGO, DESCRIPCION, UM, SUBALMACEN,
+                    // STOCK_SISTEMA, FISICO (si ya existía conteo previo), rowIndex (fila real
+                    // en INVENTARIO o null si es un ítem de MAESTRO que aún no está en INVENTARIO)
+                    database = json.data.map(item => ({
+                        CODIGO: String(item.CODIGO),
+                        DESCRIPCION: item.DESCRIPCION || '',
+                        UNDM: item.UM || '',
+                        SUBALMACEN: item.SUBALMACEN || CONFIG.FUERA_DE_STOCK_LABEL,
+                        STOCK: Number(item.STOCK_SISTEMA) || 0,
+                        FISICO_SHEET: item.FISICO,
+                        rowIndex: item.rowIndex || null,
+                        isNew: !!item.isNew
+                    }));
+                    fileInfo.textContent = `Base de datos cargada (${database.length} registros).`;
+                    setTimeout(showMainApp, 400);
+                })
+                .catch(err => {
+                    playSound(errorSound);
+                    loader.style.display = 'none';
+                    fileInfo.textContent = 'Error al conectar: ' + err.message;
+                    retryLoadBtn.style.display = 'inline-flex';
+                    console.error('Error cargando datos:', err);
+                });
+        }
+
+        // Envía el conteo físico al backend (Apps Script), que lo guarda en la
+        // columna L (FISICO) de INVENTARIO, o agrega una fila nueva si el
+        // código no existía todavía en esa hoja (ítems "FUERA DE STOCK").
+        function saveFisicoToSheet(item) {
+            const payload = {
+                action: 'saveFisico',
+                codigo: item.CODIGO,
+                fisico: item.STOCK_FISICO,
+                rowIndex: item.rowIndex || null,
+                descripcion: item.DESCRIPCION,
+                um: item.UNDM
+            };
+            fetch(CONFIG.API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // evita preflight CORS en Apps Script
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(json => {
+                if (!json.ok) throw new Error(json.error || 'No se pudo guardar en la hoja.');
+                // Si era un ítem nuevo, ahora ya tiene fila real: guarda el rowIndex devuelto
+                if (json.data && json.data.rowIndex) {
+                    item.rowIndex = json.data.rowIndex;
+                    const dbEntry = database.find(d => d.CODIGO === item.CODIGO && d.SUBALMACEN === item.SUBALMACEN);
+                    if (dbEntry) { dbEntry.rowIndex = json.data.rowIndex; dbEntry.isNew = false; }
+                }
+            })
+            .catch(err => {
+                playSound(errorSound);
+                console.error('Error al guardar en Google Sheets:', err);
+                alert('El conteo se guardó localmente, pero no se pudo sincronizar con la hoja: ' + err.message);
+            });
+        }
+
+        function showMainApp() {
+            playSound(successSound); loader.style.display = 'none';
+            uploadScreen.style.opacity = '0'; uploadScreen.style.transform = 'scale(0.9)';
+            setTimeout(() => {
+                uploadScreen.style.display = 'none';
+                mainApp.style.display = 'block';
+                setTimeout(() => {
+                    mainApp.style.opacity = '1';
+                    mainApp.style.transform = 'scale(1)';
+                    locationInput.focus();
+                }, 50);
+            }, 500);
+        }
+
+        // --- Lógica de Procesamiento de Inputs ---
+        function processLocation() {
+            currentLocation = locationInput.value.trim().toUpperCase();
+            if (currentLocation) {
+                playSound(successSound);
+                productCodeInput.disabled = false;
+                if(barcodeDetectorSupported) productScanBtn.disabled = false;
+                productCodeInput.placeholder = `Buscar por código o descripción...`;
+                locationInput.style.borderColor = 'var(--glow-color)';
+                productCodeInput.focus();
+            } else {
+                productCodeInput.disabled = true;
+                productScanBtn.disabled = true;
+                productCodeInput.placeholder = 'Esperando ubicación...';
+                locationInput.style.borderColor = 'var(--border-color)';
+            }
+        }
+
+        function processProductCode(forceOpen = false) {
+            const scannedCode = productCodeInput.value.trim();
+            if (!scannedCode || currentLocation === '') return;
+            
+            const matches = database.filter(item => item.CODIGO === scannedCode);
+            
+            if (matches.length === 0) {
+                // No mostrar error si la longitud es pequeña (se asume que se está escribiendo)
+                if (scannedCode.length > 5) {
+                    playSound(errorSound); alert('ERROR: Código no encontrado en la base de datos.');
+                }
+                currentScannedItem = null;
+                return;
+            }
+            
+            // LÓGICA CLAVE: Abre el modal si se forzó la apertura (escáner/pegado/Enter)
+            if (forceOpen) { 
+                playSound(successSound);
+                currentScannedItem = { code: scannedCode, matches: matches };
+                openModal(matches);
+                suggestionsBox.style.display = 'none';
+            }
+        }
+
+        locationInput.addEventListener('keydown', (e) => { 
+            if (e.key === 'Enter' || e.key === 'Tab') { 
+                e.preventDefault(); 
+                processLocation(); 
+            } 
+        });
+        locationInput.addEventListener('change', processLocation);
+        
+        // ** NUEVA LÓGICA DE DETECCIÓN DE ESCANEO/PEGADO **
+        productCodeInput.addEventListener('input', () => {
+            const now = Date.now();
+            const scannedCode = productCodeInput.value.trim();
+            const timeDiff = now - lastInputTime;
+            lastInputTime = now;
+
+            // 1. Manejar el autocompletado y sugerencias si el input es lento (escritura manual)
+            // Se asume escritura manual si la diferencia de tiempo entre inputs es grande.
+            const isTyping = timeDiff > SCAN_THRESHOLD;
+
+            if (isTyping) {
+                // Lógica de autocompletado (mantener sugerencias al escribir)
+                const query = scannedCode.toLowerCase();
+                if (query.length < 2) { suggestionsBox.style.display = 'none'; return; }
+                
+                const seenCodes = new Set();
+                const filtered = database.filter(item => {
+                    const match = String(item.CODIGO).toLowerCase().includes(query) ||
+                        String(item.DESCRIPCION).toLowerCase().includes(query);
+                    if (!match || seenCodes.has(item.CODIGO)) return false;
+                    seenCodes.add(item.CODIGO);
+                    return true;
+                });
+                
+                suggestionsBox.innerHTML = '';
+                if(filtered.length > 0) {
+                    filtered.slice(0, 10).forEach(item => {
+                        const suggestionItem = document.createElement('div');
+                        suggestionItem.className = 'suggestion-item';
+                        suggestionItem.innerHTML = `<strong>${item.CODIGO}</strong> - ${item.DESCRIPCION}`;
+                        suggestionItem.dataset.code = item.CODIGO;
+                        
+                        suggestionItem.addEventListener('click', () => { 
+                            productCodeInput.value = item.CODIGO; 
+                            suggestionsBox.style.display = 'none'; 
+                            // Forzar apertura al seleccionar sugerencia
+                            processProductCode(true); 
+                        });
+                        suggestionsBox.appendChild(suggestionItem);
+                    });
+                    suggestionsBox.style.display = 'block'; 
+                    activeSuggestionIndex = -1;
+                } else { 
+                    suggestionsBox.style.display = 'none'; 
+                }
+            }
+            
+            // 2. Lógica de procesamiento automático por Escaneo/Pegado
+            // Si la longitud es suficiente (ej. > 6) Y el input fue rápido, asumimos código completo.
+            if (scannedCode.length >= 6 && !isTyping) {
+                // Procesar inmediatamente sin esperar Enter
+                processProductCode(true);
+            }
+        });
+        
+        // Manejar Enter para forzar el procesamiento
+        productCodeInput.addEventListener('keydown', (e) => {
+            const items = suggestionsBox.querySelectorAll('.suggestion-item');
+            const suggestionsVisible = suggestionsBox.style.display === 'block';
+
+            if (e.key === 'Enter') { 
+                e.preventDefault(); 
+                if (activeSuggestionIndex > -1 && suggestionsVisible) { 
+                    // Simular clic en la sugerencia activa
+                    items[activeSuggestionIndex].click(); 
+                } else { 
+                    // Forzar el procesamiento al presionar Enter
+                    processProductCode(true); 
+                } 
+                suggestionsBox.style.display = 'none'; 
+                return;
+            }
+
+            // Lógica de navegación con flechas (sin cambios)
+            if (items.length === 0) return;
+            
+            switch(e.key) {
+                case 'ArrowDown': 
+                    if (!suggestionsVisible) return;
+                    e.preventDefault(); 
+                    activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length; 
+                    updateActiveSuggestion(items); 
+                    break;
+                case 'ArrowUp': 
+                    if (!suggestionsVisible) return;
+                    e.preventDefault(); 
+                    activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length; 
+                    updateActiveSuggestion(items); 
+                    break;
+                case 'Escape': 
+                    suggestionsBox.style.display = 'none'; 
+                    break;
+            }
+        });
+
+        function updateActiveSuggestion(items) { 
+            items.forEach((item, index) => { 
+                item.classList.toggle('suggestion-active', index === activeSuggestionIndex); 
+                if (index === activeSuggestionIndex) { 
+                    item.scrollIntoView({ block: 'nearest' }); 
+                } 
+            }); 
+        }
+        
+        document.addEventListener('click', (e) => { 
+            if (!productCodeInput.contains(e.target) && !suggestionsBox.contains(e.target)) { 
+                suggestionsBox.style.display = 'none'; 
+            } 
+        });
+
+
+        // --- Lógica del Modal de Cantidad (sin cambios) ---
+        function openModal(matches) {
+            modalDescription.textContent = matches[0].DESCRIPCION;
+            subalmacenSelect.innerHTML = '';
+            matches.forEach(m => { const opt = document.createElement('option'); opt.value = m.SUBALMACEN; opt.textContent = m.SUBALMACEN; subalmacenSelect.appendChild(opt); });
+            subalmacenSelect.disabled = matches.length === 1;
+            updateModalQuantity(); 
+            quantityModal.style.display = 'flex'; 
+            
+            setTimeout(() => quantityInput.focus(), 100); 
+        }
+
+        function updateModalQuantity() {
+            const selectedSubalmacen = subalmacenSelect.value;
+            const existingEntry = inventoryData.find(item => item.CODIGO === currentScannedItem.code && item.SUBALMACEN === selectedSubalmacen && item.UBICACION === currentLocation);
+            if (existingEntry) {
+                quantityInput.value = existingEntry.STOCK_FISICO;
+            } else {
+                // Si ya había un conteo guardado previamente en la hoja, lo sugiere
+                const dbMatch = currentScannedItem.matches.find(m => m.SUBALMACEN === selectedSubalmacen);
+                quantityInput.value = (dbMatch && dbMatch.FISICO_SHEET != null) ? dbMatch.FISICO_SHEET : '';
+            }
+        }
+        
+        subalmacenSelect.addEventListener('change', updateModalQuantity);
+
+        function saveModalData() {
+            const quantity = parseInt(quantityInput.value, 10);
+            if (isNaN(quantity) || quantity < 0) { playSound(errorSound); alert('Cantidad no válida.'); return; }
+            
+            const subalmacen = subalmacenSelect.value;
+            const originalItemData = currentScannedItem.matches.find(m => m.SUBALMACEN === subalmacen);
+            const uniqueId = `${currentScannedItem.code}_${subalmacen}_${currentLocation}`;
+            
+            const existingIndex = inventoryData.findIndex(item => item.uniqueId === uniqueId);
+            let savedItem;
+            
+            if (existingIndex > -1) { 
+                inventoryData[existingIndex].STOCK_FISICO = quantity; 
+                savedItem = inventoryData[existingIndex];
+            }
+            else { 
+                savedItem = { 
+                    uniqueId, 
+                    SUBALMACEN: subalmacen, 
+                    CODIGO: currentScannedItem.code, 
+                    DESCRIPCION: originalItemData.DESCRIPCION, 
+                    UNDM: originalItemData.UNDM, 
+                    STOCK_SISTEMA: originalItemData.STOCK, 
+                    STOCK_FISICO: quantity, 
+                    UBICACION: currentLocation,
+                    rowIndex: originalItemData.rowIndex || null
+                };
+                inventoryData.push(savedItem); 
+            }
+            
+            playSound(successSound); 
+            saveFisicoToSheet(savedItem);
+            closeModal(); 
+            renderTable();
+        }
+
+        modalSaveBtn.addEventListener('click', saveModalData);
+        modalCancelBtn.addEventListener('click', closeModal);
+        quantityInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveModalData(); } });
+
+        function closeModal() { 
+            quantityModal.style.display = 'none'; 
+            productCodeInput.value = ''; 
+            productCodeInput.focus(); 
+            currentScannedItem = null; 
+        }
+
+
+        // --- Lógica de la Tabla y Filtro (sin cambios) ---
+        function renderTable() {
+            resultsTbody.innerHTML = '';
+            inventoryData.forEach(item => {
+                const diff = item.STOCK_SISTEMA - item.STOCK_FISICO; 
+                let diffClass = '';
+                if (diff > 0) diffClass = 'diff-shortage'; 
+                else if (diff < 0) diffClass = 'diff-overstock';
+                
+                const row = document.createElement('tr'); 
+                row.setAttribute('data-id', item.uniqueId);
+                
+                row.innerHTML = `
+                    <td>${item.SUBALMACEN}</td>
+                    <td>${item.CODIGO}</td>
+                    <td class="td-description" title="${item.DESCRIPCION}">${item.DESCRIPCION}</td>
+                    <td>${item.UNDM}</td>
+                    <td>${item.STOCK_SISTEMA}</td>
+                    <td class="editable" data-field="STOCK_FISICO">${item.STOCK_FISICO}</td>
+                    <td class="${diffClass}">${diff}</td>
+                    <td class="editable" data-field="UBICACION">${item.UBICACION}</td>
+                    <td class="actions-col"><button class="delete-btn" title="Eliminar Fila"><svg class="icon"><use xlink:href="#icon-trash"></use></svg></button></td>`;
+                    
+                resultsTbody.appendChild(row);
+            }); 
+            filterTable();
+        }
+
+        resultsTbody.addEventListener('click', (e) => {
+            const target = e.target; 
+            const deleteBtn = target.closest('.delete-btn');
+            
+            if (deleteBtn) { 
+                playSound(clickSound); 
+                if (confirm('¿Está seguro de que desea eliminar esta fila?')) { 
+                    const id = deleteBtn.closest('tr').getAttribute('data-id'); 
+                    inventoryData = inventoryData.filter(item => item.uniqueId !== id); 
+                    playSound(successSound); 
+                    renderTable(); 
+                } 
+                return; 
+            }
+            
+            if (target.classList.contains('editable') && !target.querySelector('input')) {
+                const originalValue = target.textContent; 
+                const field = target.getAttribute('data-field');
+                
+                // Crea el input para edición
+                target.innerHTML = `<input type="${field === 'STOCK_FISICO' ? 'number' : 'text'}" value="${originalValue}" style="width:100%; padding:5px; background-color: var(--bg-color); color: var(--text-primary); border: 1px solid var(--glow-color)">`;
+                const input = target.querySelector('input'); 
+                input.focus();
+                
+                const saveChanges = () => {
+                    const newValue = input.value; 
+                    const row = target.closest('tr');
+                    const id = row.getAttribute('data-id'); 
+                    const itemIndex = inventoryData.findIndex(item => item.uniqueId === id);
+                    
+                    if (itemIndex > -1) { 
+                        if (field === 'STOCK_FISICO') {
+                            const quantity = parseInt(newValue, 10);
+                            if (isNaN(quantity) || quantity < 0) { 
+                                playSound(errorSound); 
+                                alert('El stock físico debe ser un número válido.'); 
+                                renderTable(); 
+                                return; 
+                            }
+                            inventoryData[itemIndex][field] = quantity;
+                            saveFisicoToSheet(inventoryData[itemIndex]);
+                        } else {
+                            inventoryData[itemIndex][field] = newValue.toUpperCase();
+                        }
+                        
+                        // Si se cambia la ubicación, actualiza el uniqueId
+                        if (field === 'UBICACION') { 
+                            const itm = inventoryData[itemIndex]; 
+                            itm.uniqueId = `${itm.CODIGO}_${itm.SUBALMACEN}_${itm.UBICACION}`; 
+                            row.setAttribute('data-id', itm.uniqueId); // Actualiza el ID en la fila
+                        }
+                        
+                        playSound(successSound); 
+                        renderTable(); 
+                    } else { 
+                        renderTable(); // Recarga la tabla si no encuentra el ítem
+                    }
+                };
+                
+                input.addEventListener('blur', saveChanges);
+                input.addEventListener('keydown', (ev) => { 
+                    if (ev.key === 'Enter') input.blur(); 
+                    if (ev.key === 'Escape') { 
+                        input.blur(); 
+                        renderTable(); // Descarta cambios y recarga
+                    } 
+                });
+            }
+        });
+
+        searchInput.addEventListener('input', filterTable);
+        function filterTable() { 
+            const searchTerm = searchInput.value.toLowerCase(); 
+            resultsTbody.querySelectorAll('tr').forEach(row => { 
+                row.style.display = row.textContent.toLowerCase().includes(searchTerm) ? '' : 'none'; 
+            }); 
+        }
+
+        // --- Lógica del Escáner de Cámara (Modificada) ---
+        async function startScanner(target) {
+            if (!barcodeDetectorSupported) { alert("Tu navegador no es compatible con la detección de códigos de barras."); return; }
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                cameraFeed.srcObject = videoStream; await cameraFeed.play();
+                cameraModal.style.display = 'flex'; scannerTargetInput = target;
+                const barcodeDetector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'upc_a'] });
+                
+                lastInputTime = Date.now();
+                
+                // Intervalo de detección
+                scannerInterval = setInterval(async () => {
+                    try { 
+                        if (!cameraFeed.srcObject) return; 
+                        const barcodes = await barcodeDetector.detect(cameraFeed); 
+                        if (barcodes.length > 0) { 
+                            const scannedValue = barcodes[0].rawValue; 
+                            lastInputTime = Date.now(); // Simula input rápido
+                            stopScanner(); 
+                            scannerTargetInput.value = scannedValue; 
+                            
+                            // Disparar el evento 'input' para que lo capture la lógica de "pegado/escaneo rápido"
+                            scannerTargetInput.dispatchEvent(new Event('input', { bubbles: true })); 
+                            
+                            if (scannerTargetInput === locationInput) {
+                                // Si escaneamos la ubicación, no necesitamos un input handler
+                                processLocation();
+                            }
+                        }
+                    } catch (err) { console.error("Error de detección:", err); }
+                }, 300);
+            } catch (err) { 
+                playSound(errorSound); 
+                console.error("Error al acceder a la cámara:", err); 
+                alert("No se pudo acceder a la cámara. Asegúrate de dar los permisos necesarios (HTTPS) y que no esté en uso."); 
+            }
+        }
+
+        function stopScanner() { 
+            if (scannerInterval) clearInterval(scannerInterval); 
+            scannerInterval = null; 
+            if (videoStream) { 
+                videoStream.getTracks().forEach(track => track.stop()); 
+                videoStream = null; 
+                cameraFeed.srcObject = null; 
+            } 
+            cameraModal.style.display = 'none'; 
+        }
+
+        locationScanBtn.addEventListener('click', () => startScanner(locationInput));
+        productScanBtn.addEventListener('click', () => startScanner(productCodeInput));
+        cameraModalCloseBtn.addEventListener('click', stopScanner);
+
+        // --- Lógica de Reportes (Descarga e Impresión) (sin cambios) ---
+        downloadBtn.addEventListener('click', () => {
+            playSound(clickSound); 
+            const consolidated = {};
+            
+            // Consolidar entradas por Código y Subalmacén (sumando cantidades de diferentes ubicaciones)
+            inventoryData.forEach(item => { 
+                const key = item.CODIGO + '||' + item.SUBALMACEN; 
+                if (!consolidated[key]) { 
+                    consolidated[key] = { 
+                        SUBALMACEN: item.SUBALMACEN, 
+                        CODIGO: item.CODIGO, 
+                        DESCRIPCION: item.DESCRIPCION, 
+                        UNDM: item.UNDM, 
+                        STOCK_SISTEMA: item.STOCK_SISTEMA, 
+                        STOCK_FISICO: 0, 
+                        locations: new Set() 
+                    }; 
+                } 
+                consolidated[key].STOCK_FISICO += item.STOCK_FISICO; 
+                consolidated[key].locations.add(item.UBICACION); 
+            });
+            
+            // Crear el reporte final con ubicaciones concatenadas
+            const finalReport = Object.values(consolidated).map(item => ({ 
+                'SUBALMACEN': item.SUBALMACEN, 
+                'CODIGO': item.CODIGO, 
+                'DESCRIPCION': item.DESCRIPCION, 
+                'UNDM': item.UNDM, 
+                'STOCK SISTEMA': item.STOCK_SISTEMA, 
+                'STOCK FISICO': item.STOCK_FISICO, 
+                'DIFERENCIA': item.STOCK_SISTEMA - item.STOCK_FISICO, 
+                'UBICACION': Array.from(item.locations).join(' / ') 
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(finalReport); 
+            const workbook = XLSX.utils.book_new(); 
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte Inventario"); 
+            XLSX.writeFile(workbook, "Reporte_Inventario_Finalizado.xlsx");
+        });
+
+        printBtn.addEventListener('click', () => {
+            playSound(clickSound); 
+            const today = new Date(); 
+            const options = { year: 'numeric', month: 'long', day: 'numeric' }; 
+            printDateEl.textContent = today.toLocaleDateString('es-PE', options);
+            
+            // Clonar y ordenar la data para la impresión por Ubicación y Código
+            const printData = [...inventoryData]; 
+            printData.sort((a, b) => { 
+                return a.UBICACION.localeCompare(b.UBICACION) || a.CODIGO.localeCompare(b.CODIGO); 
+            });
+            
+            // Generar la tabla HTML para impresión
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subalmacén</th><th>Código</th><th class="td-description">Descripción</th><th>Und/M</th>
+                            <th>Stock Sistema</th><th>Stock Físico</th><th>Diferencia</th><th>Ubicación</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            printData.forEach(item => { 
+                const diff = item.STOCK_SISTEMA - item.STOCK_FISICO; 
+                tableHTML += `
+                    <tr>
+                        <td>${item.SUBALMACEN}</td>
+                        <td>${item.CODIGO}</td>
+                        <td class="td-description">${item.DESCRIPCION}</td>
+                        <td>${item.UNDM}</td>
+                        <td>${item.STOCK_SISTEMA}</td>
+                        <td>${item.STOCK_FISICO}</td>
+                        <td>${diff}</td>
+                        <td>${item.UBICACION}</td>
+                    </tr>`; 
+            });
+            
+            tableHTML += `</tbody></table>`; 
+            printContainer.innerHTML = tableHTML;
+            
+            // Disparar la ventana de impresión
+            window.print();
+        });
+    });
+    </script>
+</body>
+</html>
